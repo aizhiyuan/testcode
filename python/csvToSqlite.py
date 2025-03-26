@@ -1,3 +1,4 @@
+import csv
 import sqlite3
 import json
 from typing import Dict, List, Optional
@@ -244,6 +245,70 @@ class RuleDatabase:
             self.conn.rollback()
             return False
     
+    def export_to_csv(self, csv_path: str = 'rules_export.csv'):
+        """
+        导出所有规则到单个CSV文件
+        格式：每条主规则占一行，group_data数据合并为JSON字符串
+        """
+        rules = self.get_all_rules()
+        if not rules:
+            print("没有规则可导出")
+            return
+        
+        # 准备CSV字段
+        fieldnames = [
+            'id', 'enable', 'name', 'mode', 
+            'trg_mtd', 'ops', 'trg_cnds', 'trg_val',
+            'func_name', 'out_net', 'out_reg_addr', 
+            'out_data_unit', 'out_data_bit',
+            'net', 'data_addr', 'data_unit', 'data_bit',
+            'grp_data'  # group_data将以JSON字符串存储
+        ]
+        
+        with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            
+            for rule in rules:
+                # 复制规则数据并转换group_data为JSON字符串
+                row_data = rule.copy()
+                row_data['grp_data'] = json.dumps(rule['grp_data'], ensure_ascii=False)
+                row_data['enable'] = str(row_data['enable'])  # 确保布尔值转为字符串
+                writer.writerow(row_data)
+        
+        print(f"成功导出 {len(rules)} 条规则到 {csv_path}")
+    
+    def import_from_csv(self, csv_path: str = 'rules_export.csv'):
+        """
+        从CSV文件导入规则
+        格式：每条主规则一行，group_data为JSON字符串
+        """
+        try:
+            with open(csv_path, 'r', newline='', encoding='utf-8') as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    # 转换JSON字符串回Python对象
+                    if 'grp_data' in row and row['grp_data']:
+                        row['grp_data'] = json.loads(row['grp_data'])
+                    else:
+                        row['grp_data'] = []
+                    
+                    # 转换enable为布尔值
+                    row['enable'] = row['enable'].lower() == 'true'
+                    
+                    # 检查规则是否已存在
+                    existing_rule = self.get_rule(row['id'])
+                    if existing_rule:
+                        self.update_rule(row['id'], row)
+                    else:
+                        self.insert_rule(row)
+            
+            print(f"成功从 {csv_path} 导入规则")
+            return True
+        except Exception as e:
+            print(f"导入规则失败: {e}")
+            return False
+    
     def close(self):
         """关闭数据库连接"""
         self.conn.close()
@@ -256,7 +321,7 @@ if __name__ == '__main__':
     test_rule1 = {
         "id": "1001",
         "enable": True,
-        "name": "测试规则",
+        "name": "测试规则1",
         "mode": "自动",
         "trg_mtd": "边缘触发",
         "ops": "AND",
@@ -285,28 +350,96 @@ if __name__ == '__main__':
     
     test_rule2 = {
         "id": "1002",
-        "enable": True,
-        "name": "测试规则",
-        "mode": "自动",
-        "trg_mtd": "边缘触发",
-        "ops": "AND",
-        "trg_cnds": ">",
-        "trg_val": "50",
-        "func_name": "温度报警",
-        "out_net": "192.168.1.100",
-        "out_reg_addr": "0x3000",
-        "out_data_unit": "word",
-        "out_data_bit": "16",
-        "net": "192.168.1.1",
-        "data_addr": "0x4000",
-        "data_unit": "byte",
-        "data_bit": "8",
+        "enable": False,
+        "name": "测试规则2",
+        "mode": "手动",
+        "trg_mtd": "电平触发",
+        "ops": "OR",
+        "trg_cnds": "<",
+        "trg_val": "20",
+        "func_name": "控制功能",
+        "out_net": "192.168.1.101",
+        "out_reg_addr": "0x3001",
+        "out_data_unit": "byte",
+        "out_data_bit": "8",
+        "net": "192.168.1.10",
+        "data_addr": "0x4001",
+        "data_unit": "word",
+        "data_bit": "16",
         "grp_data": [
             {
                 "index": "1",
-                "lgcl_cnds": "AND",
-                "net": "192.168.1.2",
-                "data_addr": "0x5000",
+                "lgcl_cnds": "OR",
+                "net": "192.168.1.11",
+                "data_addr": "0x5001",
+                "data_unit": "word",
+                "data_bit": "16"
+            },
+            {
+                "index": "2",
+                "lgcl_cnds": "OR",
+                "net": "192.168.1.11",
+                "data_addr": "0x5001",
+                "data_unit": "word",
+                "data_bit": "16"
+            },
+            {
+                "index": "3",
+                "lgcl_cnds": "OR",
+                "net": "192.168.1.11",
+                "data_addr": "0x5001",
+                "data_unit": "word",
+                "data_bit": "16"
+            },
+            {
+                "index": "4",
+                "lgcl_cnds": "OR",
+                "net": "192.168.1.11",
+                "data_addr": "0x5001",
+                "data_unit": "word",
+                "data_bit": "16"
+            },
+            {
+                "index": "5",
+                "lgcl_cnds": "OR",
+                "net": "192.168.1.11",
+                "data_addr": "0x5001",
+                "data_unit": "word",
+                "data_bit": "16"
+            },{
+                "index": "6",
+                "lgcl_cnds": "OR",
+                "net": "192.168.1.11",
+                "data_addr": "0x5001",
+                "data_unit": "word",
+                "data_bit": "16"
+            }
+            ,{
+                "index": "7",
+                "lgcl_cnds": "OR",
+                "net": "192.168.1.11",
+                "data_addr": "0x5001",
+                "data_unit": "word",
+                "data_bit": "16"
+            },{
+                "index": "8",
+                "lgcl_cnds": "OR",
+                "net": "192.168.1.11",
+                "data_addr": "0x5001",
+                "data_unit": "word",
+                "data_bit": "16"
+            },{
+                "index": "9",
+                "lgcl_cnds": "OR",
+                "net": "192.168.1.11",
+                "data_addr": "0x5001",
+                "data_unit": "word",
+                "data_bit": "16"
+            },{
+                "index": "10",
+                "lgcl_cnds": "OR",
+                "net": "192.168.1.11",
+                "data_addr": "0x5001",
                 "data_unit": "word",
                 "data_bit": "16"
             }
@@ -315,38 +448,26 @@ if __name__ == '__main__':
 
     # 测试增删改查
     print("1. 添加规则:", db.insert_rule(test_rule1))
-    print("2. 查询规则:", json.dumps(db.get_rule("1001"), indent=2))
+    print("2. 添加规则:", db.insert_rule(test_rule2))
     
-    print("1. 添加规则:", db.insert_rule(test_rule2))
-    print("2. 查询规则:", json.dumps(db.get_rule("1002"), indent=2))
+    # 导出到CSV
+    print("\n导出测试:")
+    db.export_to_csv('rules_export.csv')
     
-    # 更新测试
-    test_rule1['name'] = "更新后的规则"
-    test_rule1['trg_val'] = "60"
-    test_rule1['grp_data'] = [{
-                "index": "1",
-                "lgcl_cnds": "AND",
-                "net": "192.168.1.1",
-                "data_addr": "0x5000",
-                "data_unit": "word",
-                "data_bit": "16"
-            },
-                             {
-                "index": "2",
-                "lgcl_cnds": "AND",
-                "net": "192.168.1.2",
-                "data_addr": "0x5000",
-                "data_unit": "word",
-                "data_bit": "16"
-            }]
-    print("3. 更新规则:", db.update_rule("1001", test_rule1))
-    print("4. 查询更新后:", json.dumps(db.get_rule("1001"), indent=2, ensure_ascii=False))
+    # 清空数据库
+    print("\n清空数据库测试:")
+    for rule in db.get_all_rules():
+        db.delete_rule(rule['id'])
+    print("当前规则数量:", len(db.get_all_rules()))
     
-    # 查询所有
-    print("5. 所有规则:", [rule['id'] for rule in db.get_all_rules()])
+    # 从CSV导入
+    print("\n导入测试:")
+    db.import_from_csv('rules_export.csv')
+    print("导入后规则数量:", len(db.get_all_rules()))
     
-    # 删除测试
-    print("6. 删除规则:", db.delete_rule("1001"))
-    print("7. 删除后查询:",json.dumps(db.get_rule("1001"), indent=2, ensure_ascii=False) )
+    # 打印导入后的规则
+    print("\n导入后的规则:")
+    for rule in db.get_all_rules():
+        print(json.dumps(rule, indent=2, ensure_ascii=False))
     
     db.close()
