@@ -6,31 +6,7 @@
 #include <stdlib.h>
 
 #define MAX_RULES 256
-#define MAX_GRPS 256
-
-// 规则结构体
-typedef struct {
-    char id[64];
-    bool enable;
-    char name[128];
-    char mode[64];
-    char trg_mtd[64];
-    char ops[64];
-    char trg_cnds[64];
-    char trg_val[64];
-    char func_name[128];
-    char out_net[64];
-    char out_reg_addr[64];
-    char out_data_unit[64];
-    char out_data_bit[64];
-    char net[64];
-    char data_addr[64];
-    char data_unit[64];
-    char data_bit[64];
-    // group_data数组，存储相关的条件和信息
-    struct GroupData *grp_data;
-    int grp_data_size;
-} Rule;
+#define MAX_GRPS 1000
 
 // group_data结构体
 typedef struct {
@@ -41,6 +17,29 @@ typedef struct {
     char data_unit[64];
     char data_bit[64];
 } GroupData;
+
+// 规则结构体
+typedef struct {
+    char id[64];
+    char enable[64];
+    char name[128];
+    char mode[64];
+    char trg_mtd[64];
+    char ops[64];
+    char trg_cnds[64];
+    char trg_val[64];
+    char func_name[128];
+    char out_net[64];
+    char out_data_addr[64];
+    char out_data_unit[64];
+    char out_data_bit[64];
+    char net[64];
+    char data_addr[64];
+    char data_unit[64];
+    char data_bit[64];
+    GroupData grp_data[MAX_GRPS];  // 修改为数组而非指针
+    int grp_data_size;
+} Rule;
 
 typedef struct {
     sqlite3 *conn;
@@ -70,5 +69,8 @@ int get_all_rules(RuleDatabase *db, Rule *rules);
 
 // 创建表
 bool create_tables(RuleDatabase *db);
+
+// 打印整个 Rule 结构体为 JSON 格式
+void print_rule_json(Rule *rule);
 
 #endif // RULE_DATABASE_H

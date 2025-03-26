@@ -37,7 +37,7 @@ bool create_tables(RuleDatabase *db) {
             trg_val TEXT,
             func_name TEXT,
             out_net TEXT,
-            out_reg_addr TEXT,
+            out_data_addr TEXT,
             out_data_unit TEXT,
             out_data_bit TEXT,
             net TEXT,
@@ -86,19 +86,18 @@ bool insert_rule(RuleDatabase *db, Rule *rule) {
     const char *insert_rule_sql = R"(
         INSERT INTO rules (
             id, enable, name, mode, trg_mtd, ops, trg_cnds, trg_val,
-            func_name, out_net, out_reg_addr, out_data_unit, out_data_bit,
+            func_name, out_net, out_data_addr, out_data_unit, out_data_bit,
             net, data_addr, data_unit, data_bit
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?);
     )";
-    
     int rc = sqlite3_prepare_v2(db->conn, insert_rule_sql, -1, &stmt, 0);
     if (rc != SQLITE_OK) {
-        fprintf(stderr, "Failed to prepare insert statement\n");
+        fprintf(stderr, "Failed to prepare insert statement, err:%s\n", sqlite3_errmsg(db->conn));
         return false;
     }
     
     sqlite3_bind_text(stmt, 1, rule->id, -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, rule->enable ? "True" : "False", -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, rule->enable ,-1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 3, rule->name, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 4, rule->mode, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 5, rule->trg_mtd, -1, SQLITE_STATIC);
@@ -107,7 +106,7 @@ bool insert_rule(RuleDatabase *db, Rule *rule) {
     sqlite3_bind_text(stmt, 8, rule->trg_val, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 9, rule->func_name, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 10, rule->out_net, -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 11, rule->out_reg_addr, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 11, rule->out_data_addr, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 12, rule->out_data_unit, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 13, rule->out_data_bit, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 14, rule->net, -1, SQLITE_STATIC);
@@ -117,14 +116,14 @@ bool insert_rule(RuleDatabase *db, Rule *rule) {
     
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
-        fprintf(stderr, "Failed to insert rule\n");
+        fprintf(stderr, "Failed to insert rule, err:%s\n", sqlite3_errmsg(db->conn));
         sqlite3_finalize(stmt);
         return false;
     }
     
     sqlite3_finalize(stmt);
     
-    // Insert group data
+    // 插入 group 数据
     const char *insert_group_data_sql = R"(
         INSERT INTO rule_group_data (rule_id, item_index, lgcl_cnds, net, data_addr, data_unit, data_bit, position)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?);
@@ -144,7 +143,7 @@ bool insert_rule(RuleDatabase *db, Rule *rule) {
         
         rc = sqlite3_step(stmt);
         if (rc != SQLITE_DONE) {
-            fprintf(stderr, "Failed to insert group data\n");
+            fprintf(stderr, "Failed to insert group data, err:%s\n", sqlite3_errmsg(db->conn));
             sqlite3_finalize(stmt);
             return false;
         }
@@ -161,18 +160,18 @@ bool update_rule(RuleDatabase *db, const char *rule_id, Rule *rule) {
     const char *update_rule_sql = R"(
         UPDATE rules SET 
             enable = ?, name = ?, mode = ?, trg_mtd = ?, ops = ?, trg_cnds = ?, trg_val = ?,
-            func_name = ?, out_net = ?, out_reg_addr = ?, out_data_unit = ?, out_data_bit = ?,
+            func_name = ?, out_net = ?, out_data_addr = ?, out_data_unit = ?, out_data_bit = ?,
             net = ?, data_addr = ?, data_unit = ?, data_bit = ?
         WHERE id = ?;
     )";
     
     int rc = sqlite3_prepare_v2(db->conn, update_rule_sql, -1, &stmt, 0);
     if (rc != SQLITE_OK) {
-        fprintf(stderr, "Failed to prepare update statement\n");
+        fprintf(stderr, "Failed to prepare update statement, err:%s\n", sqlite3_errmsg(db->conn));
         return false;
     }
     
-    sqlite3_bind_text(stmt, 1, rule->enable ? "True" : "False", -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 1, rule->enable, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 2, rule->name, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 3, rule->mode, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 4, rule->trg_mtd, -1, SQLITE_STATIC);
@@ -181,7 +180,7 @@ bool update_rule(RuleDatabase *db, const char *rule_id, Rule *rule) {
     sqlite3_bind_text(stmt, 7, rule->trg_val, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 8, rule->func_name, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 9, rule->out_net, -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 10, rule->out_reg_addr, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 10, rule->out_data_addr, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 11, rule->out_data_unit, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 12, rule->out_data_bit, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 13, rule->net, -1, SQLITE_STATIC);
@@ -192,7 +191,7 @@ bool update_rule(RuleDatabase *db, const char *rule_id, Rule *rule) {
     
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
-        fprintf(stderr, "Failed to update rule\n");
+        fprintf(stderr, "Failed to update rule, err:%s\n", sqlite3_errmsg(db->conn));
         sqlite3_finalize(stmt);
         return false;
     }
@@ -206,7 +205,7 @@ bool update_rule(RuleDatabase *db, const char *rule_id, Rule *rule) {
     
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
-        fprintf(stderr, "Failed to delete old group data\n");
+        fprintf(stderr, "Failed to delete old group data, err:%s\n", sqlite3_errmsg(db->conn));
         sqlite3_finalize(stmt);
         return false;
     }
@@ -216,8 +215,7 @@ bool update_rule(RuleDatabase *db, const char *rule_id, Rule *rule) {
     // Insert new group data
     const char *insert_group_data_sql = R"(
         INSERT INTO rule_group_data (rule_id, item_index, lgcl_cnds, net, data_addr, data_unit, data_bit, position)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-    )";
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?);)";
     
     for (int i = 0; i < rule->grp_data_size; ++i) {
         sqlite3_prepare_v2(db->conn, insert_group_data_sql, -1, &stmt, 0);
@@ -233,7 +231,7 @@ bool update_rule(RuleDatabase *db, const char *rule_id, Rule *rule) {
         
         rc = sqlite3_step(stmt);
         if (rc != SQLITE_DONE) {
-            fprintf(stderr, "Failed to insert group data\n");
+            fprintf(stderr, "Failed to insert group data, err:%s\n", sqlite3_errmsg(db->conn));
             sqlite3_finalize(stmt);
             return false;
         }
@@ -266,7 +264,7 @@ bool get_rule(RuleDatabase *db, const char *rule_id, Rule *rule) {
     
     // Populate rule struct
     strncpy(rule->id, (const char *)sqlite3_column_text(stmt, 0), sizeof(rule->id));
-    rule->enable = strcmp((const char *)sqlite3_column_text(stmt, 1), "True") == 0;
+    strncpy(rule->enable,(const char *)sqlite3_column_text(stmt, 1),sizeof(rule->enable));
     strncpy(rule->name, (const char *)sqlite3_column_text(stmt, 2), sizeof(rule->name));
     strncpy(rule->mode, (const char *)sqlite3_column_text(stmt, 3), sizeof(rule->mode));
     strncpy(rule->trg_mtd, (const char *)sqlite3_column_text(stmt, 4), sizeof(rule->trg_mtd));
@@ -275,7 +273,7 @@ bool get_rule(RuleDatabase *db, const char *rule_id, Rule *rule) {
     strncpy(rule->trg_val, (const char *)sqlite3_column_text(stmt, 7), sizeof(rule->trg_val));
     strncpy(rule->func_name, (const char *)sqlite3_column_text(stmt, 8), sizeof(rule->func_name));
     strncpy(rule->out_net, (const char *)sqlite3_column_text(stmt, 9), sizeof(rule->out_net));
-    strncpy(rule->out_reg_addr, (const char *)sqlite3_column_text(stmt, 10), sizeof(rule->out_reg_addr));
+    strncpy(rule->out_data_addr, (const char *)sqlite3_column_text(stmt, 10), sizeof(rule->out_data_addr));
     strncpy(rule->out_data_unit, (const char *)sqlite3_column_text(stmt, 11), sizeof(rule->out_data_unit));
     strncpy(rule->out_data_bit, (const char *)sqlite3_column_text(stmt, 12), sizeof(rule->out_data_bit));
     strncpy(rule->net, (const char *)sqlite3_column_text(stmt, 13), sizeof(rule->net));
@@ -355,4 +353,55 @@ int get_all_rules(RuleDatabase *db, Rule *rules) {
     
     sqlite3_finalize(stmt);
     return count;
+}
+
+// 打印 GroupData 数据为 JSON 格式
+void print_group_data_json(GroupData *grp_data, int grp_data_size) {
+    printf("    \"group_data\": [\n");
+    for (int i = 0; i < grp_data_size; ++i) {
+        printf("      {\n");
+        printf("        \"index\": \"%s\",\n", grp_data[i].index);
+        printf("        \"lgcl_cnds\": \"%s\",\n", grp_data[i].lgcl_cnds);
+        printf("        \"net\": \"%s\",\n", grp_data[i].net);
+        printf("        \"data_addr\": \"%s\",\n", grp_data[i].data_addr);
+        printf("        \"data_unit\": \"%s\",\n", grp_data[i].data_unit);
+        printf("        \"data_bit\": \"%s\"\n", grp_data[i].data_bit);
+        if (i < grp_data_size - 1) {
+            printf("      },\n");
+        } else {
+            printf("      }\n");
+        }
+    }
+    printf("    ]\n");
+}
+
+// 打印整个 Rule 结构体为 JSON 格式
+void print_rule_json(Rule *rule) {
+    printf("{\n");
+    printf("  \"id\": \"%s\",\n", rule->id);
+    printf("  \"enable\": \"%s\",\n", rule->enable);
+    printf("  \"name\": \"%s\",\n", rule->name);
+    printf("  \"mode\": \"%s\",\n", rule->mode);
+    printf("  \"trg_mtd\": \"%s\",\n", rule->trg_mtd);
+    printf("  \"ops\": \"%s\",\n", rule->ops);
+    printf("  \"trg_cnds\": \"%s\",\n", rule->trg_cnds);
+    printf("  \"trg_val\": \"%s\",\n", rule->trg_val);
+    printf("  \"func_name\": \"%s\",\n", rule->func_name);
+    printf("  \"out_net\": \"%s\",\n", rule->out_net);
+    printf("  \"out_data_addr\": \"%s\",\n", rule->out_data_addr);
+    printf("  \"out_data_unit\": \"%s\",\n", rule->out_data_unit);
+    printf("  \"out_data_bit\": \"%s\",\n", rule->out_data_bit);
+    printf("  \"net\": \"%s\",\n", rule->net);
+    printf("  \"data_addr\": \"%s\",\n", rule->data_addr);
+    printf("  \"data_unit\": \"%s\",\n", rule->data_unit);
+    printf("  \"data_bit\": \"%s\",\n", rule->data_bit);
+
+    // 打印 GroupData 如果存在
+    if (rule->grp_data_size > 0) {
+        print_group_data_json(rule->grp_data, rule->grp_data_size);
+    } else {
+        printf("    \"group_data\": []\n");  // 如果没有 group data，打印空数组
+    }
+
+    printf("}\n");
 }
